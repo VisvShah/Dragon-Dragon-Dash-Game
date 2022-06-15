@@ -752,9 +752,10 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
         for n in 0...2{
             let endlessB = SKSpriteNode(texture: SKTexture(imageNamed: "Background1"))
             endlessB.name = "endlessB"
-            endlessB.size = CGSize(width: self.size.width, height: self.size.height*1.3)
+            //The width of each backgrounbd is greater than the size of the screen so that they may overlap and prevent a visual bug that exposes a gap between the backgrounds when the background is moving.
+            endlessB.size = CGSize(width: self.size.width + 1, height: self.size.height*1.3)
             endlessB.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            endlessB.position = CGPoint(x: (CGFloat(n) * endlessB.size.width), y: 0)
+            endlessB.position = CGPoint(x: self.size.width * CGFloat(n), y: 0)
             endlessB.zPosition = 0
             self.addChild(endlessB)
         }
@@ -763,18 +764,16 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
     func moveEndlessB(){
         if(currentGameStage == gameStage.during && level != 0){
             var feverSpeed:CGFloat = 1.0
-                if(hasFever || hasSpeedBoost){
-                    feverSpeed = 4
-                }
-                self.enumerateChildNodes(withName: "endlessB", using: ({
-                    (node, error) in
-                    node.position.x -= ((5 + (2 * CGFloat(self.level))) * feverSpeed)
+            if(hasFever || hasSpeedBoost){
+                feverSpeed = 4
+            }
+            self.enumerateChildNodes(withName: "endlessB", using: ({(node, error) in
+                node.position.x -= ((5 + (2 * CGFloat(self.level))) * feverSpeed)
                 
-                    if node.position.x < -((self.scene?.size.width)!){
-                        node.run(SKAction.setTexture(SKTexture(imageNamed: backgrounds[self.level])))
-                        //node.texture = SKTexture(imageNamed: backgrounds[level-1])
-                        node.position.x += ((self.scene?.size.width)! * 3)
-                    }
+                if node.position.x < -((self.scene?.size.width)!){
+                    node.run(SKAction.setTexture(SKTexture(imageNamed: backgrounds[self.level])))
+                    node.position.x += ((self.scene?.size.width)! * 3)
+                }
             }))
         }
         else if(currentGameStage != gameStage.before && endBackgroundSpeed < 50){
