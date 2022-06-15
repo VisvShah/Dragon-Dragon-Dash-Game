@@ -26,9 +26,6 @@ let sWeaponsUpgrade = Upgrade(name : "sWeapons", upgradeValues : [10,12,14,16,18
 let PUChanceUpgrade = Upgrade(name : "PUChance", upgradeValues : [0], upgradeCosts : [100, 5000, 100000, 2500000])
 let coinsUpgrade = Upgrade(name : "coinsUpgrade", upgradeValues : [1,2,3,4,5], upgradeCosts : [1000, 50000, 2000000, 10000000])
 
-//var moreWeaponsLevel = defaults.integer(forKey: "moreW")
-//var weaponMaxLevel = defaults.integer(forKey: "maxW")
-
 let backgrounds = ["Background1","Background1","Background2","Background2","Background3","Background3","Background4","Background4","Background5","Background5",]
 var endLevel = 0
 
@@ -48,7 +45,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
     let faintAnimation:SKAction = SKAction.animate(with: [SKTexture(imageNamed: "playerDeath0"),SKTexture(imageNamed: "playerDeath1"),SKTexture(imageNamed: "playerDeath2"),SKTexture(imageNamed: "playerDeath3"),SKTexture(imageNamed: "playerDeath4"),SKTexture(imageNamed: "playerDeath5"), SKTexture(imageNamed: "playerDeath6"),SKTexture(imageNamed: "playerDeath7"),SKTexture(imageNamed: "playerDeath8"),SKTexture(imageNamed: "playerDeath9")], timePerFrame: 0.1)
     let playerBoostAnimation = SKAction.animate(with: [SKTexture(imageNamed: "PlayerF0"),SKTexture(imageNamed: "PlayerF1"),SKTexture(imageNamed: "PlayerF2"),SKTexture(imageNamed: "PlayerF3"),SKTexture(imageNamed: "PlayerF4"),SKTexture(imageNamed: "PlayerF5"),SKTexture(imageNamed: "PlayerF6"),SKTexture(imageNamed: "PlayerF7"),SKTexture(imageNamed: "PlayerF8"),SKTexture(imageNamed: "PlayerF9")], timePerFrame: 0.1)
     let playerAnimationSpeed = [0.1, 0.09, 0.083, 0.077, 0.072, 0.068, 0.065, 0.063, 0.061]
-    //Initializing variables for the random enemy spawn
+   
     public var randomYStart : Int = 0
     public var randomYEnd : Int = 0
     public var startP : CGPoint = CGPoint(x: 0, y: 0)
@@ -59,9 +56,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
     let lifeImage = SKSpriteNode(imageNamed: "lifeImage")
     var lives = livesUpgrade.upgradeValues[livesLevel]
     var livesLabel = SKLabelNode(fontNamed: mainFont)
-    var level = 0
     var weaponCount = sWeaponsUpgrade.upgradeValues[sWeaponsLevel]
-    
     var weaponLabel = SKLabelNode(fontNamed: mainFont)
     var coinsLabel = SKLabelNode(fontNamed: mainFont)
     let tapToStart = SKLabelNode(fontNamed: mainFont)
@@ -69,12 +64,27 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
     let leftDirections = SKLabelNode(fontNamed: mainFont)
     let middleLine = SKSpriteNode(imageNamed: "blackLine")
     
+   
+    
+    var didPlayerSpawn = false
+    var hasFever = false
+    var hasSpeedBoost = false
+    var isLabelActive = false
+    
+    var level = 0
+    var earnedCoins = 0
+    var powerUpType = 0
+    var backgroundSpeed:CGFloat = 0.0
+    var endBackgroundSpeed = 0.0
+    var boostCounter = 0
+    
     enum gameStage{
         case before //before game starts
         case during //during game
         case after //after game
     }
     var currentGameStage = gameStage.before
+    
     //A structure that defines every physics node with a bit number so it can be referenced later.
     struct PhysicsCats{
         static let None : UInt32 = 0
@@ -83,38 +93,20 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
         static let Enemy: UInt32 = 0b100 //4
         static let AmmoBoost: UInt32 = 0b1000 //8
     }
-
     
+    struct Enemy {
+        var image = "", coinAmount = 1, scale:CGFloat = 1.0,speed:Double = 1.0,startPoint = CGPoint(),endPoint = CGPoint(),animation = SKAction()
+    }
+    var enemyTypes:[Enemy] = []
+    
+    
+   
     override init(size: CGSize){
         super.init(size:size)
     }
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
-    
-    var jumping = false
-    var rising = false
-    var didPlayerSpawn = false
-    var fallingA = 1
-    
-    struct Enemy {
-        var image = "", coinAmount = 1, scale:CGFloat = 1.0,speed:Double = 1.0,startPoint = CGPoint(),endPoint = CGPoint(),animation = SKAction()
-    }
-    var earnedCoins = 0
-    
-    var powerUpType = 0
-    
-    
-    var enemyTypes:[Enemy] = []
-    
-    var backgroundSpeed:CGFloat = 0.0
-    var endBackgroundSpeed = 0.0
-    
-    var boostCounter = 0
-    var hasFever = false
-    var hasSpeedBoost = false
-    var newLevelStarting = false
-    
     //The code that runs from the start
     override func didMove(to view: SKView) {
         if(highScore < 1){
@@ -430,12 +422,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
                 feverRushLabel.text = "FEVER RUSH!"
                 feverRushLabel.fontSize = 170
                 feverRushLabel.fontColor = SKColor.black
-                if(self.newLevelStarting){
-                    feverRushLabel.position = CGPoint(x:0,y:200)
-                }
-                else{
-                    feverRushLabel.position = CGPoint(x:0,y:0)
-                }
                 feverRushLabel.zPosition = 10
                 feverRushLabel.alpha = 0
                 self.addChild(feverRushLabel)
@@ -449,14 +435,28 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
                 feverRushInfoLabel.text = "X3 COINS AND IMMMUNITY"
                 feverRushInfoLabel.fontSize = 80
                 feverRushInfoLabel.fontColor = SKColor.black
-                feverRushInfoLabel.position = CGPoint(x:0,y:-100)
+                
                 feverRushInfoLabel.zPosition = 10
                 feverRushInfoLabel.alpha = 0
                 self.addChild(feverRushInfoLabel)
+                
+                if(self.isLabelActive){
+                    feverRushLabel.position = CGPoint(x:0,y:300)
+                    feverRushInfoLabel.position = CGPoint(x:0,y:200)
+                }
+                else{
+                    self.isLabelActive = true
+                    feverRushLabel.position = CGPoint(x:0,y:0)
+                    feverRushInfoLabel.position = CGPoint(x:0,y:-100)
+                }
+                
                 feverRushInfoLabel.run(fadeInAction)
                 let feverRushInfoLabelWait = SKAction.wait(forDuration: 2)
                 let feverRushInfoLabelDelete = SKAction.removeFromParent()
-                let feverRushInfoLabelSequence = SKAction.sequence([feverRushInfoLabelWait, feverRushInfoLabelDelete])
+                let isLabelFalse = SKAction.run {
+                    self.isLabelActive = false
+                }
+                let feverRushInfoLabelSequence = SKAction.sequence([feverRushInfoLabelWait, feverRushInfoLabelDelete, isLabelFalse])
                 feverRushInfoLabel.run(feverRushInfoLabelSequence)
                 
                 //self.playerAnimation = self.playerBoostAnimation
@@ -529,7 +529,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
                 ammoBoost.physicsBody!.collisionBitMask = PhysicsCats.None
                 ammoBoost.physicsBody!.contactTestBitMask = PhysicsCats.Player
                 self.addChild(ammoBoost)
-                let moveAmmoBoost = SKAction.move(to: CGPoint(x: -1000, y: ammoBoostStart.y), duration: 3.5)
+                let moveAmmoBoost = SKAction.move(to: CGPoint(x: -1300, y: ammoBoostStart.y), duration: 4)
                 let removeAmmoBoost = SKAction.removeFromParent()
                 let ammoBoostSpawnSequence = SKAction.sequence([moveAmmoBoost, removeAmmoBoost])
                 ammoBoost.run(ammoBoostSpawnSequence)
@@ -547,7 +547,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
                 ammoBoost.physicsBody!.collisionBitMask = PhysicsCats.None
                 ammoBoost.physicsBody!.contactTestBitMask = PhysicsCats.Player
                 self.addChild(ammoBoost)
-                let moveAmmoBoost = SKAction.move(to: CGPoint(x: -1000, y: ammoBoostStart.y), duration: 3.5)
+                let moveAmmoBoost = SKAction.move(to: CGPoint(x: -1300, y: ammoBoostStart.y), duration: 4)
                 let removeAmmoBoost = SKAction.removeFromParent()
                 let ammoBoostSpawnSequence = SKAction.sequence([moveAmmoBoost, removeAmmoBoost])
                 ammoBoost.run(ammoBoostSpawnSequence)
@@ -565,7 +565,7 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
                 ammoBoost.physicsBody!.collisionBitMask = PhysicsCats.None
                 ammoBoost.physicsBody!.contactTestBitMask = PhysicsCats.Player
                 self.addChild(ammoBoost)
-                let moveAmmoBoost = SKAction.move(to: CGPoint(x: -1000, y: ammoBoostStart.y), duration: 3.5)
+                let moveAmmoBoost = SKAction.move(to: CGPoint(x: -1300, y: ammoBoostStart.y), duration: 4)
                 let removeAmmoBoost = SKAction.removeFromParent()
                 let ammoBoostSpawnSequence = SKAction.sequence([moveAmmoBoost, removeAmmoBoost])
                 ammoBoost.run(ammoBoostSpawnSequence)
@@ -646,20 +646,26 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
     func newLevel(){
         level += 1
         if(level != 1){
-            newLevelStarting = true
             let newLevelLabel = SKLabelNode(fontNamed: mainFont)
             newLevelLabel.text = "NEW LEVEL!"
             newLevelLabel.fontSize = 100
             newLevelLabel.fontColor = SKColor.black
-            newLevelLabel.position = CGPoint(x:0, y:0)
+            if(isLabelActive){
+                newLevelLabel.position = CGPoint(x:0, y:150)
+            }
+            else{
+                isLabelActive = true
+                newLevelLabel.position = CGPoint(x:0, y:0)
+            }
+            
             newLevelLabel.zPosition = 1
             self.addChild(newLevelLabel)
             let waitInstructions = SKAction.wait(forDuration: 3)
             let deleteIntructions = SKAction.removeFromParent()
-            let changeNewLevelLabel = SKAction.run {
-                self.newLevelStarting = false
+            let isLabelFalse = SKAction.run {
+                self.isLabelActive = false
             }
-            let intructionsSequence = SKAction.sequence([waitInstructions,deleteIntructions,changeNewLevelLabel])
+            let intructionsSequence = SKAction.sequence([waitInstructions,deleteIntructions,isLabelFalse])
             newLevelLabel.run(intructionsSequence)
         }
         if self.action(forKey: "spawnEnemies") != nil{
@@ -748,7 +754,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
             endlessB.name = "endlessB"
             endlessB.size = CGSize(width: self.size.width, height: self.size.height*1.3)
             endlessB.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            endlessB.position = CGPoint(x: (CGFloat(n) * endlessB.size.width) - 1, y: 0)
+            endlessB.position = CGPoint(x: (CGFloat(n) * endlessB.size.width), y: 0)
+            endlessB.zPosition = 0
             self.addChild(endlessB)
         }
     }
@@ -757,11 +764,11 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
         if(currentGameStage == gameStage.during && level != 0){
             var feverSpeed:CGFloat = 1.0
                 if(hasFever || hasSpeedBoost){
-                    feverSpeed = 8
+                    feverSpeed = 4
                 }
                 self.enumerateChildNodes(withName: "endlessB", using: ({
                     (node, error) in
-                        node.position.x -= (5 + (2 * CGFloat(self.level)) * feverSpeed)
+                    node.position.x -= ((5 + (2 * CGFloat(self.level))) * feverSpeed)
                 
                     if node.position.x < -((self.scene?.size.width)!){
                         node.run(SKAction.setTexture(SKTexture(imageNamed: backgrounds[self.level])))
@@ -811,14 +818,12 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
             ammoBoost, stop in
             ammoBoost.removeAllActions()
         }
-        let ninjaFaint = SKAction.run{
-            if(!self.jumping){
-                self.player.removeAction(forKey: "changeAnimation")
-                self.player.run(self.faintAnimation)
-            }
+        let playerFaint = SKAction.run{
+            self.player.removeAction(forKey: "changeAnimation")
+            self.player.run(self.faintAnimation)
         }
-        let ChangeScene = SKAction.sequence([ninjaFaint,SKAction.wait(forDuration: 2), SKAction.run(endScene)])
-        self.run(ChangeScene)
+        let changeScene = SKAction.sequence([playerFaint,SKAction.wait(forDuration: 2), SKAction.run(endScene)])
+        self.run(changeScene)
     }
     
     
@@ -897,36 +902,6 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
     }
     
     
-    
-    
-    /*
-    func playerJump(){
-        if(!jumping){
-            self.jumping = true
-            //player.run(SKAction.repeatForever(playerJumpAnimation), withKey:"changeAnimation")
-            let movePoint = CGPoint(x: -700, y: 400)
-            let movePoint2 = CGPoint(x: -700, y: -480)
-            let jumpUp = SKAction.move(to: movePoint, duration: 0.4)
-            let jumpDown = SKAction.move(to: movePoint2, duration: 0.4)
-            let jumpPause = SKAction.wait(forDuration: 0.15)
-            let jumpingFalse = SKAction.run {
-                self.jumping = false
-                if(self.currentGameStage == gameStage.after){
-                    self.player.removeAction(forKey: "changeAnimation")
-                    self.player.run(self.faintAnimation)
-                }
-                else{
-                    self.player.run(SKAction.repeatForever(self.playerAnimation), withKey:"changeAnimation")
-                }
-            }
-            let jumpSequence = SKAction.sequence([jumpUp, jumpPause, jumpDown, jumpingFalse])
-            player.run(jumpSequence)
-            
-        }
-    }
-    */
-    
-    
     override func update(_ currentTime: CFTimeInterval){
         moveEndlessB()
     }
@@ -946,11 +921,8 @@ class GameScene: SKScene, SKPhysicsContactDelegate{
                         updateWeaponCount(number:-1)
                     }
                 }
-                else{
-                    rising = true
-                    }
-                }
             }
+        }
     }
 
    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
